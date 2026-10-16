@@ -18,7 +18,6 @@
 
 ## 怎么安装
 
-## Install
 npx skills add Ria-dong/html-report-tuner
 
 
