@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>__TOOL_TITLE_PLACEHOLDER__</title>
+<style>
+  :root{
+    --panel-bg:#0A0A0D; --panel-ink:#F0EFEB; --panel-muted:#8F8E88;
+    --panel-rule:#2E2E31;
+    --accent:#2E3AD6;   /* 月蚀蓝——主强调色 */
+    --selected:#7A1F33; /* 酒红——所有"选中/开启"状态统一用这个 */
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;}
+  .layout{display:flex;height:100vh}
+
+  /* ── 面板外壳：装极光层，裁切溢出。极光是贴侧边栏底边的背景效果，不是logo的装饰，
+     所以三个色块都用 bottom 定位、集中在下半部，不往头部/logo那块靠。 ── */
+  #panel{width:320px;flex:none;position:relative;overflow:hidden;background:var(--panel-bg)}
+  .aurora-bg{position:absolute;inset:0;overflow:hidden;z-index:0;pointer-events:none}
+  .aurora-blob{position:absolute;border-radius:50%;filter:blur(60px);opacity:.5;will-change:transform}
+  .aurora-b1{width:260px;height:260px;left:-70px;bottom:-70px;
+    background:radial-gradient(circle,#0B6E4F 0%,rgba(11,110,79,0) 70%);
+    animation:auroraDrift1 24s ease-in-out infinite;}
+  .aurora-b2{width:230px;height:230px;right:-60px;bottom:140px;
+    background:radial-gradient(circle,#5EEAD4 0%,rgba(94,234,212,0) 70%);
+    animation:auroraDrift2 28s ease-in-out infinite;}
+  .aurora-b3{width:300px;height:300px;left:30px;bottom:-130px;
+    background:radial-gradient(circle,#9CA3AF 0%,rgba(156,163,175,0) 70%);
+    animation:auroraDrift3 32s ease-in-out infinite;}
+  @keyframes auroraDrift1{
+    0%,100%{transform:translate(0,0) rotate(0deg) scale(1)}
+    33%{transform:translate(34px,42px) rotate(40deg) scale(1.18)}
+    66%{transform:translate(-22px,16px) rotate(-25deg) scale(.92)}
+  }
+  @keyframes auroraDrift2{
+    0%,100%{transform:translate(0,0) rotate(0deg) scale(1)}
+    40%{transform:translate(-38px,-26px) rotate(-30deg) scale(1.12)}
+    70%{transform:translate(16px,32px) rotate(20deg) scale(.88)}
+  }
+  @keyframes auroraDrift3{
+    0%,100%{transform:translate(0,0) rotate(0deg) scale(1)}
+    50%{transform:translate(26px,-36px) rotate(35deg) scale(1.2)}
+  }
+  /* 内容层：极光之上盖一层半透明暗幕保证文字对比度，再放真正的面板内容 */
+  .panel-content{
+    position:relative;z-index:1;height:100%;overflow-y:auto;
+    padding:20px 18px 40px;background:rgba(8,8,10,.38);color:var(--panel-ink);
+  }
+
+  .logo{display:flex;align-items:center;gap:8px;margin:0 0 16px;font-size:14px;font-weight:700;letter-spacing:.02em}
+  .logo .mark{
+    width:20px;height:20px;border-radius:50%;flex:none;
+    background:conic-gradient(from 0deg, var(--accent), var(--selected), var(--accent));
+  }
+
+  h2{
+    font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--accent);margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--panel-rule);
+  }
+  h2:first-of-type{border-top:none;padding-top:0;margin-top:0}
+
+  /* ── 滑动指示器分段标签页（模块/文字/颜色）── */
+  .tabs{position:relative;display:flex;gap:2px;background:rgba(255,255,255,.04);border:1px solid var(--panel-rule);
+    border-radius:999px;padding:4px;margin-bottom:14px}
+  .tab-indicator{
+    position:absolute;top:4px;left:0;height:calc(100% - 8px);border-radius:999px;background:var(--accent);
+    transition:transform .5s cubic-bezier(.34,1.56,.64,1), width .5s cubic-bezier(.34,1.56,.64,1), opacity .2s;
+    z-index:0;opacity:0;pointer-events:none;
+  }
+  .tab-indicator.show{opacity:1}
+  .tab-btn{
+    position:relative;z-index:1;flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+    padding:8px 8px;border:none;background:transparent;color:var(--panel-muted);font-size:12px;font-weight:600;
+    border-radius:999px;cursor:pointer;transition:color .25s;
+  }
+  .tab-btn .ic{font-size:13px;line-height:1}
+  .tab-btn.on{color:#fff}
+
+  .action-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+  .pill-btn{
+    display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;
+    border:1px solid var(--panel-rule);background:rgba(255,255,255,.04);color:var(--panel-ink);
+    font-size:12px;font-weight:600;cursor:pointer;transition:border-color .15s,background .15s,opacity .15s;
+  }
+  .pill-btn .ic{font-size:13px;line-height:1}
+  .pill-btn:hover{border-color:var(--accent)}
+  .pill-btn:disabled{opacity:.35;cursor:not-allowed}
+  .pill-btn:disabled:hover{border-color:var(--panel-rule)}
+  #saveBtn{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  #colorSection{display:none}
+  .row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .row .swatch{
+    width:30px;height:24px;border-radius:5px;border:1px solid var(--panel-rule);
+    padding:0;background:none;cursor:pointer;flex:none;
+  }
+  .row .label{flex:1;min-width:0;cursor:pointer;border-radius:5px;padding:2px 4px;margin:-2px -4px;transition:background .15s}
+  .row .label:hover{background:rgba(46,58,214,.18)}
+  .row.locate-active .label{background:var(--selected)}
+  .row .label .zh{font-size:12.5px;display:block}
+  .row .label .var{font-size:9.5px;color:var(--panel-muted);font-family:monospace;display:block}
+  .row .hex{
+    font-size:10px;color:var(--panel-muted);font-family:monospace;width:58px;text-align:right;flex:none;
+  }
+  @keyframes rowFlash{0%,100%{background:transparent} 50%{background:var(--selected)}}
+  .row.row-flash{animation:rowFlash .5s ease 2}
+
+  .palette-card{
+    display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:7px;
+    border:1px solid var(--panel-rule);border-radius:8px;cursor:pointer;transition:border-color .15s;
+  }
+  .palette-card:hover{border-color:var(--accent)}
+  .palette-card .swatches{display:flex;flex:none}
+  .palette-card .swatches span{width:14px;height:22px;display:block;margin-left:-4px}
+  .palette-card .swatches span:first-child{margin-left:0;border-radius:4px 0 0 4px}
+  .palette-card .swatches span:last-child{border-radius:0 4px 4px 0}
+  .palette-card .pname{font-size:12.5px;flex:1}
+  #restoreColorsBtn{width:100%;justify-content:center;border-radius:8px;margin:2px 0 14px}
+
+  #stage{flex:1;min-width:0;position:relative;background:#000}
+  #stage iframe{width:100%;height:100%;border:none;display:block}
+  #editOverlay{
+    position:absolute;top:0;left:0;right:0;padding:6px 14px;
+    background:var(--accent);color:#fff;font-size:12px;font-weight:600;
+    text-align:center;display:none;letter-spacing:.02em;z-index:10;
+  }
+  #editOverlay.show{display:block}
+</style>
+</head>
+<body>
+<div class="layout">
+  <div id="panel">
+    <div class="aurora-bg">
+      <span class="aurora-blob aurora-b1"></span>
+      <span class="aurora-blob aurora-b2"></span>
+      <span class="aurora-blob aurora-b3"></span>
+    </div>
+    <div class="panel-content">
+      <div class="logo"><span class="mark"></span>Style Control Panel</div>
+
+      <div class="tabs" id="modeTabs">
+        <div class="tab-indicator" id="tabIndicator"></div>
+        <button id="modBtn" class="tab-btn" title="显示/隐藏模块拖拽手柄"><span class="ic">⠿</span>模块</button>
+        <button id="editBtn" class="tab-btn" title="开关文字直接编辑"><span class="ic">✎</span>文字</button>
+        <button id="colorEditBtn" class="tab-btn" title="展开颜色编辑（取色 + 定位）"><span class="ic">◐</span>颜色</button>
+      </div>
+
+      <div class="action-bar">
+        <button id="undoBtn" class="pill-btn" disabled title="撤回上一步"><span class="ic">↺</span>撤回</button>
+        <button id="saveBtn" class="pill-btn" title="保存为新 HTML"><span class="ic">⬇</span>保存</button>
+        <button id="resetBtn" class="pill-btn" title="重置所有改动"><span class="ic">↻</span>重置</button>
+      </div>
+
+      <!-- 配色卡常驻展示，不依赖"颜色"标签页——不用点开任何东西就能一键换色 -->
+      <h2>配色卡</h2>
+      <div id="paletteList"></div>
+      <div id="paletteMore" style="display:none"></div>
+      <button id="paletteMoreBtn" class="pill-btn" style="width:100%;justify-content:center;border-radius:8px;margin-bottom:14px">更多配色卡</button>
+
+      <div id="colorSection">
+        <button id="restoreColorsBtn" class="pill-btn">恢复原始配色</button>
+
+        <!-- COLOR_GROUPS_PLACEHOLDER: 每组一个 <h2> + 一个空 <div>，由脚本按 COLOR_GROUPS 自动生成——颜色标签页里的内容是在
+             已选配色卡的基础上逐个token微调，不是选配色卡本身用的 -->
+        <div id="colorGroupsHost"></div>
+      </div>
+    </div>
+  </div>
+  <div id="stage">
+    <div id="editOverlay">文字编辑已开启 · 直接点击右侧文字修改 · 再点一次"文字"按钮退出</div>
+    <iframe id="preview"></iframe>
+  </div>
+</div>
+
+<script>
+// 源文件经 base64 嵌入——务必用 base64，不要用 <script type="text/plain"> 的假标签trick：
+// 源文件自带任何"斜杠script右尖括号"这个字面量（哪怕出现在源文件自己的注释/脚本里）都会把这层包裹脚本提前截断。
+// 同理：写这段说明的时候也不要在注释里敲出真正的"闭合标签"字样，否则会把本文件自己截断（实测踩过这个坑）。
+const SRC_B64 = "__SOURCE_B64_PLACEHOLDER__";
+const srcHtml = new TextDecoder('utf-8').decode(Uint8Array.from(atob(SRC_B64), c => c.charCodeAt(0)));
+
+// ════ 颜色分组：按目标文档实际归纳出的语义色 token 填写 ════
+// 结构：[{title: 组标题, kind: "bg"|"ink"|"accent", vars: [[变量名, 中文语义标签], ...]}, ...]
+// 由构建脚本按 CONFIG['color_groups'] 注入，组数/组名/每组条目都应按读到的目标文档归纳，不要套用别的文档的分组。
+// kind 决定这组在"配色卡一键切换"时按哪种规则适配数量，务必标对：
+//   "bg"     背景/边框类——数量通常较少（2~5个），不足取前N个，超出按已知两级的明度趋势外推。
+//   "ink"    文字灰阶类——本质是明到暗的连续渐变，固定在两个端点色之间按需要的级数等距插值，永远不会数量不匹配。
+//   "accent" 分类强调色——需要互相区分的多个色相，不足取前N个，超出在色相环剩余最大缝隙里插新色相。
+// COLOR_GROUPS 里第一个 kind:"bg" 组的第一个变量，会被当成"背景"参与互补色高亮的计算，顺序很重要。
+const COLOR_GROUPS = __COLOR_GROUPS_JSON_PLACEHOLDER__;
+
+const iframe = document.getElementById('preview');
+const modBtn = document.getElementById('modBtn');
+const editBtn = document.getElementById('editBtn');
+const colorEditBtn = document.getElementById('colorEditBtn');
+const tabIndicator = document.getElementById('tabIndicator');
+const colorSection = document.getElementById('colorSection');
+const undoBtn = document.getElementById('undoBtn');
+const restoreColorsBtn = document.getElementById('restoreColorsBtn');
+const saveBtn = document.getElementById('saveBtn');
+const resetBtn = document.getElementById('resetBtn');
+const overlay = document.getElementById('editOverlay');
+let editing = false;
+let modulesOn = false;
+let locating = false;
+let colorEditOn = false;
+let activeTab = null; // 'mod' | 'edit' | 'color' | null —— 三个模式现在是互斥的标签页
+let activeLocateRow = null;
+let rowByVar = {};       // varName -> 面板行DOM，供撤回/配色卡回填显示值用
+let originalColors = {}; // varName -> 文档最初的hex，供"恢复原始配色"用
+
+function rgbToHex(rgb){
+  const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if(!m) return '#000000';
+  return '#' + m.slice(1,4).map(n=>(+n).toString(16).padStart(2,'0')).join('');
+}
+
+// ── 滑动指示器：读目标按钮的 offsetLeft / offsetWidth，translateX + width 配合 spring 曲线滑过去 ──
+function moveIndicator(btn){
+  if (!btn){ tabIndicator.classList.remove('show'); return; }
+  tabIndicator.style.width = btn.offsetWidth + 'px';
+  tabIndicator.style.transform = `translateX(${btn.offsetLeft}px)`;
+  tabIndicator.classList.add('show');
+}
+
+// ── 颜色数学：hex↔HSL互转 + 插值，配色卡适配数量、互补色高亮全靠这几个纯函数 ──
+function hexToHsl(hex){
+  let r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b);
+  let h=0,s=0,l=(max+min)/2;
+  if (max!==min){
+    const d=max-min;
+    s = l>0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max){
+      case r: h=(g-b)/d+(g<b?6:0); break;
+      case g: h=(b-r)/d+2; break;
+      case b: h=(r-g)/d+4; break;
+    }
+    h *= 60;
+  }
+  return {h, s:s*100, l:l*100};
+}
+function hslToHex(h,s,l){
+  h=((h%360)+360)%360; s=Math.max(0,Math.min(100,s))/100; l=Math.max(0,Math.min(100,l))/100;
+  const c=(1-Math.abs(2*l-1))*s, x=c*(1-Math.abs((h/60)%2-1)), m=l-c/2;
+  let r=0,g=0,b=0;
+  if (h<60){r=c;g=x;b=0} else if(h<120){r=x;g=c;b=0} else if(h<180){r=0;g=c;b=x}
+  else if(h<240){r=0;g=x;b=c} else if(h<300){r=x;g=0;b=c} else {r=c;g=0;b=x}
+  const to255=v=>Math.round((v+m)*255);
+  return '#' + [to255(r),to255(g),to255(b)].map(n=>n.toString(16).padStart(2,'0')).join('');
+}
+function lerp(a,b,t){ return a+(b-a)*t; }
+function lerpHue(a,b,t){ // 走色相环上更短的那条弧，避免跨0°时插值绕远路
+  let d = b-a;
+  if (d > 180) d -= 360;
+  if (d < -180) d += 360;
+  return a + d*t;
+}
+
+// ── 配色卡：自创几套，每套给"背景族种子序列(由深到浅/由基础到边框)"、"文字灰阶两端点"、
+// "分类强调色序列"。mono:true 表示这套卡哲学上只给一个真彩色，多出来的强调位用灰阶填，不强行造新色相。──
+const PALETTES = [
+  { name:'深海蓝调', mono:false,
+    bg: ['#0A1628','#0F2138','#13263F','#1F3A52','#2F5272'],
+    inkEndpoints: ['#EEF4FA','#5B7A94'],
+    accents: ['#4FA3F7','#3DD6A3','#F6C945','#F2924A','#F0665C','#B48CF2','#45D1D6','#F083B0'] },
+  { name:'暖纸墨痕', mono:false,
+    bg: ['#FBF7F0','#F3EDE1','#EDE4D3','#DCD0B8','#C7B890'],
+    inkEndpoints: ['#2B2417','#9C9078'],
+    accents: ['#2E6B52','#8A5A2B','#B23A48','#5B6FA8','#9C6B9E','#C98A3A','#4C8C8C','#A85C3E'] },
+  { name:'数据青碧', mono:false,
+    bg: ['#F4F8FA','#E7F0F3','#DCE9ED','#C3D7DD','#9FC0C9'],
+    inkEndpoints: ['#0E2A32','#6B8A91'],
+    accents: ['#1C8C9C','#2E9E5B','#E0A72E','#D97B3F','#D1495B','#6C6FC4','#3E8FD0'] },
+  { name:'活力拼色', mono:false,
+    bg: ['#16161D','#1E1E29','#262635','#33334A','#47476B'],
+    inkEndpoints: ['#F7F7FB','#8A8AA3'],
+    accents: ['#FF6B6B','#FFB648','#FFE156','#6BCB77','#4D96FF','#9D6BFF','#FF6BCB','#3DDCDC'] },
+  { name:'极简黑白', mono:true,
+    bg: ['#FFFFFF','#F5F5F5','#EDEDED','#DDDDDD','#BBBBBB'],
+    inkEndpoints: ['#111111','#888888'],
+    accents: ['#FF4D4D'] },
+];
+// 前 PALETTES_DEFAULT_COUNT 张常驻展示，不用点开任何东西就看得到；剩下的收在"更多"里。
+const PALETTES_DEFAULT_COUNT = 5;
+
+// "更多"里的12套：深色底6套+浅色底6套，每种底色各配2套商务感/2套科技感/2套高级感，
+// 自己配的色，不是照抄哪张参考图——深浅各半是刻意的，避免像上一版那样清一色深色底。
+PALETTES.push(
+  // ── 深色底 · 商务感 ──
+  { name:'深蓝公文', mono:false,
+    bg: ['#0B1220','#141C2C','#202A3C','#3A4456','#58637A'],
+    inkEndpoints: ['#EDEFF3','#8A93A6'],
+    accents: ['#4A6FA5','#6B7D99','#9C8550','#4F6F52','#7A3B3F'] },
+  { name:'炭灰雅致', mono:false,
+    bg: ['#121212','#1C1C1C','#2A2A2A','#454545','#6B6B6B'],
+    inkEndpoints: ['#F2F0EC','#9B9893'],
+    accents: ['#5C7A8A','#8B6F4E','#6E5A7B','#4F7858','#9B4F4F'] },
+  // ── 深色底 · 科技感 ──
+  { name:'赛博霓虹', mono:false,
+    bg: ['#08090F','#10131E','#181C2C','#2A3049','#454C6E'],
+    inkEndpoints: ['#E8ECFF','#8891B8'],
+    accents: ['#00E5FF','#7B61FF','#FF3D81','#39FF88','#FFC53D'] },
+  { name:'量子石墨', mono:false,
+    bg: ['#0A0D10','#12161B','#1C2228','#313A42','#536270'],
+    inkEndpoints: ['#E6EEF2','#8CA0AC'],
+    accents: ['#2DD4BF','#5B8DEF','#B07CF2','#F2C94C','#EF5B6C'] },
+  // ── 深色底 · 高级感 ──
+  { name:'墨金夜宴', mono:false,
+    bg: ['#0E0C0A','#19140F','#241C14','#453626','#6B5940'],
+    inkEndpoints: ['#F3ECDD','#A69B85'],
+    accents: ['#C9A24B','#7A2E2E','#2E5245','#5A4A6B','#8A8378'] },
+  { name:'丝绒暗夜', mono:false,
+    bg: ['#140B14','#1F1420','#2E1E30','#4A3550','#6E5478'],
+    inkEndpoints: ['#F1E9EE','#A390A8'],
+    accents: ['#B8860B','#7D2E4A','#3B5A6B','#5E6B4E','#C4A5A5'] },
+  // ── 浅色底 · 商务感 ──
+  { name:'云白公文', mono:false,
+    bg: ['#FAFAF8','#F0F0ED','#E4E4DF','#D0D0C8','#B8B8AC'],
+    inkEndpoints: ['#1C1E22','#5A5D63'],
+    accents: ['#2C4F75','#5A6B82','#7A6238','#3D5C45','#6B3838'] },
+  { name:'米灰简报', mono:false,
+    bg: ['#F7F4EF','#EDE8DF','#DED6C8','#C5BBA9','#A89D89'],
+    inkEndpoints: ['#262220','#716856'],
+    accents: ['#4A5E6E','#7A5B45','#5F6B4A','#8C4A4A','#6E5A7A'] },
+  // ── 浅色底 · 科技感 ──
+  { name:'极简冷白', mono:false,
+    bg: ['#FFFFFF','#F4F6F9','#E6EAF0','#CBD2DE','#9CA7BB'],
+    inkEndpoints: ['#10131A','#596273'],
+    accents: ['#0A6CFF','#6D4FE0','#00B894','#FF6B4A','#E0A526'] },
+  { name:'瓷白量子', mono:false,
+    bg: ['#FAFBFC','#EFF2F5','#E0E5EA','#BFC9D2','#8B98A6'],
+    inkEndpoints: ['#151A1E','#5C6A75'],
+    accents: ['#00C2D1','#5E60CE','#2EC4B6','#F4A826','#EF476F'] },
+  // ── 浅色底 · 高级感 ──
+  { name:'珍珠象牙', mono:false,
+    bg: ['#FBF8F2','#F2ECDF','#E6DCC8','#CBBFA0','#A79878'],
+    inkEndpoints: ['#221E17','#6B6151'],
+    accents: ['#8A6D3B','#5C3A3F','#3D5A4E','#5A4A5C','#786F63'] },
+  { name:'雾粉丝绒', mono:false,
+    bg: ['#FBF4F2','#F3E6E3','#E8D2CE','#D0AEAC','#AC8684'],
+    inkEndpoints: ['#241A19','#6E5452'],
+    accents: ['#9B6B3F','#7A3350','#4A5E68','#6B6038','#B08A8A'] }
+);
+
+function fitBgColors(seeds, n){
+  if (n <= seeds.length) return seeds.slice(0, n);
+  const out = seeds.slice();
+  const a = hexToHsl(seeds[seeds.length-2]), b = hexToHsl(seeds[seeds.length-1]);
+  const dh=b.h-a.h, ds=b.s-a.s, dl=b.l-a.l;
+  let last = b;
+  while (out.length < n){
+    last = {h:last.h+dh, s:Math.max(0,Math.min(100,last.s+ds)), l:Math.max(0,Math.min(100,last.l+dl))};
+    out.push(hslToHex(last.h, last.s, last.l));
+  }
+  return out;
+}
+function fitInkColors(endpoints, n){
+  if (n <= 0) return [];
+  const a = hexToHsl(endpoints[0]), b = hexToHsl(endpoints[1]);
+  if (n === 1) return [endpoints[0]];
+  const out = [];
+  for (let i=0;i<n;i++){
+    const t = i/(n-1);
+    out.push(hslToHex(lerpHue(a.h,b.h,t), lerp(a.s,b.s,t), lerp(a.l,b.l,t)));
+  }
+  return out;
+}
+function largestGapMidpointHue(huesSorted){
+  let best = {gap:-1, mid:0};
+  for (let i=0;i<huesSorted.length;i++){
+    const cur = huesSorted[i];
+    const next = huesSorted[(i+1)%huesSorted.length];
+    const gap = ((next - cur) % 360 + 360) % 360 || 360;
+    const mid = (cur + gap/2) % 360;
+    if (gap > best.gap) best = {gap, mid};
+  }
+  return best.mid;
+}
+function fitAccentColors(palette, n){
+  if (n <= 0) return [];
+  if (palette.mono){
+    const hero = palette.accents[0];
+    if (n === 1) return [hero];
+    return [hero, ...fitInkColors(palette.inkEndpoints, n-1)];
+  }
+  const seeds = palette.accents;
+  if (n <= seeds.length) return seeds.slice(0, n);
+  const hsls = seeds.map(hexToHsl);
+  const avgS = hsls.reduce((s,c)=>s+c.s,0)/hsls.length;
+  const avgL = hsls.reduce((s,c)=>s+c.l,0)/hsls.length;
+  let hues = hsls.map(c=>c.h).sort((a,b)=>a-b);
+  const extraHex = [];
+  while (seeds.length + extraHex.length < n){
+    const mid = largestGapMidpointHue(hues);
+    extraHex.push(hslToHex(mid, avgS, avgL));
+    hues = hues.concat([mid]).sort((a,b)=>a-b);
+  }
+  return seeds.concat(extraHex);
+}
+
+// ── 撤回：单一线性栈，覆盖"改色"（含配色卡批量切换）和"模块拖拽/新增"，文字编辑不进栈 ──
+const undoStack = [];
+function updateUndoButton(){ undoBtn.disabled = undoStack.length === 0; }
+function pushUndo(entry){ undoStack.push(entry); if (undoStack.length>200) undoStack.shift(); updateUndoButton(); }
+function updateRowDisplay(varName, hex){
+  const row = rowByVar[varName];
+  if (!row) return;
+  row.querySelector('input').value = hex;
+  row.querySelector('input').dataset.prevValue = hex;
+  row.querySelector('.hex').textContent = hex;
+}
+function performUndo(){
+  const entry = undoStack.pop();
+  updateUndoButton();
+  if (!entry) return;
+  const doc = iframe.contentDocument;
+  if (entry.type === 'color'){
+    doc.documentElement.style.setProperty(entry.varName, entry.from);
+    updateRowDisplay(entry.varName, entry.from);
+  } else if (entry.type === 'palette'){
+    entry.changes.forEach(c=>{
+      doc.documentElement.style.setProperty(c.varName, c.from);
+      updateRowDisplay(c.varName, c.from);
+    });
+  } else if (entry.type === 'module-move'){
+    if (entry.beforeEl && entry.beforeEl.parentNode === entry.parent) entry.parent.insertBefore(entry.el, entry.beforeEl);
+    else entry.parent.appendChild(entry.el);
+  } else if (entry.type === 'module-add'){
+    entry.el.remove();
+  }
+}
+undoBtn.addEventListener('click', performUndo);
+
+function applyPalette(palette){
+  const doc = iframe.contentDocument;
+  const changes = [];
+  function setVar(varName, hex){
+    const old = getComputedStyle(doc.documentElement).getPropertyValue(varName).trim() || '#000000';
+    doc.documentElement.style.setProperty(varName, hex);
+    updateRowDisplay(varName, hex);
+    changes.push({varName, from:old, to:hex});
+  }
+  COLOR_GROUPS.forEach(g=>{
+    const varNames = g.vars.map(v=>v[0]).filter(v=>rowByVar[v]); // 只处理实际探测到、面板里真的有这一行的变量
+    if (!varNames.length) return;
+    let fitted;
+    if (g.kind === 'bg') fitted = fitBgColors(palette.bg, varNames.length);
+    else if (g.kind === 'ink') fitted = fitInkColors(palette.inkEndpoints, varNames.length);
+    else if (g.kind === 'accent') fitted = fitAccentColors(palette, varNames.length);
+    else return; // 未知kind不处理，保留原值
+    varNames.forEach((v,i)=> setVar(v, fitted[i]));
+  });
+  if (changes.length) pushUndo({type:'palette', changes});
+}
+
+let paletteMoreOpen = false;
+function buildPaletteList(){
+  const host = document.getElementById('paletteList');
+  const moreHost = document.getElementById('paletteMore');
+  const moreBtn = document.getElementById('paletteMoreBtn');
+  host.innerHTML = '';
+  moreHost.innerHTML = '';
+  PALETTES.forEach((p, i)=>{
+    const card = document.createElement('div');
+    card.className = 'palette-card';
+    const previewColors = [...p.bg.slice(0,2), ...fitAccentColors(p, p.mono ? 3 : Math.min(4,p.accents.length))];
+    card.innerHTML = `<span class="swatches">${previewColors.map(c=>`<span style="background:${c}"></span>`).join('')}</span><span class="pname">${p.name}</span>`;
+    card.addEventListener('click', ()=> applyPalette(p));
+    (i < PALETTES_DEFAULT_COUNT ? host : moreHost).appendChild(card);
+  });
+  moreBtn.style.display = PALETTES.length > PALETTES_DEFAULT_COUNT ? 'block' : 'none';
+  moreBtn.textContent = paletteMoreOpen ? '收起' : '更多配色卡';
+  moreHost.style.display = paletteMoreOpen ? 'block' : 'none';
+}
+document.getElementById('paletteMoreBtn').addEventListener('click', ()=>{
+  paletteMoreOpen = !paletteMoreOpen;
+  document.getElementById('paletteMore').style.display = paletteMoreOpen ? 'block' : 'none';
+  document.getElementById('paletteMoreBtn').textContent = paletteMoreOpen ? '收起' : '更多配色卡';
+});
+
+restoreColorsBtn.addEventListener('click', ()=>{
+  const doc = iframe.contentDocument;
+  const changes = [];
+  Object.keys(originalColors).forEach(varName=>{
+    const old = getComputedStyle(doc.documentElement).getPropertyValue(varName).trim();
+    const orig = originalColors[varName];
+    if (old.toLowerCase() === orig.toLowerCase()) return;
+    doc.documentElement.style.setProperty(varName, orig);
+    updateRowDisplay(varName, orig);
+    changes.push({varName, from:old, to:orig});
+  });
+  if (changes.length) pushUndo({type:'palette', changes});
+});
+
+// ── 颜色定位：双向的"这个颜色用在哪/这里是什么颜色"，纯离线、按当前计算值字符串比对，不依赖AI ──
+const LOCATE_PROPS = ['color','backgroundColor','borderTopColor','borderRightColor','borderBottomColor','borderLeftColor'];
+const TOOL_UI_SELECTOR = '.mod-handle, .mod-add-btn';
+
+// 荧光笔高亮色 = 当前背景（COLOR_GROUPS 里第一个 kind:"bg" 组的第一个变量）的互补色（色相+180°），
+// 饱和度/明度固定取一组肉眼好辨认的值，不跟着背景的明暗走——否则背景很暗/很亮时互补色本身也可能
+// 暗得/亮得看不清，失去"高亮"这个功能本身的意义。
+function getLocateHighlightColor(doc){
+  let hex = null;
+  const bgGroup = COLOR_GROUPS.find(g => g.kind === 'bg' && g.vars.length);
+  if (bgGroup){
+    const varName = bgGroup.vars[0][0];
+    const live = getComputedStyle(doc.documentElement).getPropertyValue(varName).trim();
+    if (live) hex = live.startsWith('#') ? live : rgbToHex(live);
+  }
+  if (!hex) return '#FFD54F'; // 探测不到背景token时的保底黄色
+  const hsl = hexToHsl(hex);
+  const compHue = (hsl.h + 180) % 360;
+  return hslToHex(compHue, 70, 55);
+}
+
+function ensureLocateStyle(doc){
+  let s = doc.getElementById('__locate_style__');
+  if (!s){
+    s = doc.createElement('style');
+    s.id = '__locate_style__';
+    doc.head.appendChild(s);
+  }
+  // md那种"荧光笔"效果：用一个绝对定位的伪元素叠一层半透明高亮色在最上面，而不是直接改
+  // background-color——很多卡片自己的背景是 background:linear-gradient(...) 这种图层，
+  // background-image 在盒子里天然画在 background-color 上面，直接改颜色会被挡住看不见；
+  // 伪元素是额外一层，盖在所有背景图层之上，不受这个限制。pointer-events:none 保证定位
+  // 模式下点击还能穿透到真实内容上。颜色每次都重新算一遍互补色，保证跟当前背景同步。
+  const hex = getLocateHighlightColor(doc);
+  const rgb = hex.slice(1).match(/.{2}/g).map(h=>parseInt(h,16)).join(',');
+  s.textContent =
+    `.__color_locate_hit__::after{content:"";position:absolute;inset:-2px;` +
+    `background:rgba(${rgb},.45);border-radius:3px;pointer-events:none;z-index:2147483647;}`;
+}
+
+function elementHexForProp(doc, el, prop){
+  const cs = getComputedStyle(el);
+  const v = cs[prop];
+  if (!v || v === 'rgba(0, 0, 0, 0)' || v === 'transparent') return null;
+  return rgbToHex(v);
+}
+
+function clearColorHighlights(doc){
+  doc.querySelectorAll('.__color_locate_hit__').forEach(el=>{
+    el.classList.remove('__color_locate_hit__');
+    if (el.dataset.locatePosPatched){ el.style.position = ''; delete el.dataset.locatePosPatched; }
+  });
+}
+
+function highlightElementsForHex(doc, hex){
+  ensureLocateStyle(doc);
+  clearColorHighlights(doc);
+  let count = 0;
+  const target = hex.toLowerCase();
+  doc.body.querySelectorAll('*').forEach(el=>{
+    if (el.closest(TOOL_UI_SELECTOR)) return;
+    for (const prop of LOCATE_PROPS){
+      const h = elementHexForProp(doc, el, prop);
+      if (h && h.toLowerCase() === target){
+        // 伪元素高亮层要靠 position 建立定位上下文；只在本来是 static 时才补，
+        // 并记一个标记，方便清除高亮时准确改回去（不要动本来就 absolute/fixed/relative 的元素）。
+        if (getComputedStyle(el).position === 'static'){
+          el.style.position = 'relative';
+          el.dataset.locatePosPatched = '1';
+        }
+        el.classList.add('__color_locate_hit__');
+        count++;
+        break;
+      }
+    }
+  });
+  return count;
+}
+
+function flashRow(row){
+  row.classList.remove('row-flash');
+  void row.offsetWidth; // 强制重排，保证动画能重新触发
+  row.classList.add('row-flash');
+  row.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function findRowsByHex(hex){
+  const target = hex.toLowerCase();
+  return [...document.querySelectorAll('#colorGroupsHost .row')]
+    .filter(r => r.querySelector('.hex').textContent.toLowerCase() === target);
+}
+
+function onLocateClick(e){
+  if (e.target.closest(TOOL_UI_SELECTOR)) return;
+  e.preventDefault();
+  const doc = iframe.contentDocument;
+  const hexes = new Set();
+  for (const prop of LOCATE_PROPS){
+    const h = elementHexForProp(doc, e.target, prop);
+    if (h) hexes.add(h);
+  }
+  let matched = 0;
+  hexes.forEach(hex=>{
+    const rows = findRowsByHex(hex);
+    rows.forEach(r=>{ flashRow(r); matched++; });
+  });
+  if (!matched) console.log('[locate] 点到的位置没有匹配到任何已知颜色token，颜色值：', [...hexes]);
+}
+
+function loadDoc(){
+  iframe.srcdoc = srcHtml;
+  iframe.onload = buildPanels;
+}
+
+function buildColorPanel(doc){
+  const host = document.getElementById('colorGroupsHost');
+  host.innerHTML = '';
+  rowByVar = {};
+  originalColors = {};
+  const rootStyle = getComputedStyle(doc.documentElement);
+  COLOR_GROUPS.forEach(({title, vars})=>{
+    const h2 = document.createElement('h2');
+    h2.textContent = title;
+    host.appendChild(h2);
+    const list = document.createElement('div');
+    host.appendChild(list);
+    vars.forEach(([varName, zh])=>{
+      const raw = rootStyle.getPropertyValue(varName).trim();
+      if(!raw) return; // 没探测到就不生成这一行
+      const hex = raw.startsWith('#') ? raw : rgbToHex(raw);
+      originalColors[varName] = hex;
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `
+        <input type="color" class="swatch" value="${hex}">
+        <span class="label"><span class="zh">${zh}</span><span class="var">${varName}</span></span>
+        <span class="hex">${hex}</span>
+      `;
+      rowByVar[varName] = row;
+      const input = row.querySelector('input');
+      const hexSpan = row.querySelector('.hex');
+      const label = row.querySelector('.label');
+      input.dataset.prevValue = hex;
+      input.addEventListener('input', ()=>{
+        doc.documentElement.style.setProperty(varName, input.value);
+        hexSpan.textContent = input.value;
+        if (row.classList.contains('locate-active')) highlightElementsForHex(doc, input.value);
+      });
+      input.addEventListener('change', ()=>{
+        const prev = input.dataset.prevValue;
+        if (prev !== input.value) pushUndo({type:'color', varName, from:prev, to:input.value});
+        input.dataset.prevValue = input.value;
+      });
+      label.addEventListener('click', ()=>{
+        const doc2 = iframe.contentDocument;
+        if (row === activeLocateRow){
+          row.classList.remove('locate-active');
+          activeLocateRow = null;
+          clearColorHighlights(doc2);
+          return;
+        }
+        if (activeLocateRow) activeLocateRow.classList.remove('locate-active');
+        row.classList.add('locate-active');
+        activeLocateRow = row;
+        const n = highlightElementsForHex(doc2, hexSpan.textContent);
+        console.log('[locate]', varName, '命中', n, '处');
+      });
+      list.appendChild(row);
+    });
+  });
+}
+
+function buildPanels(){
+  const doc = iframe.contentDocument;
+  buildColorPanel(doc);
+  buildPaletteList();
+  undoStack.length = 0;
+  updateUndoButton();
+  window.__modulesTagged = false;
+}
+
+// ── 模块检测 + 拖拽排序（网格重排动画 FLIP）+ 新增空白模块（在 iframe 文档内运行）──
+// GROUP_CLASSES：目标文档自己的"网格/弹性布局、带多个重复子项"的 class 名，
+// 由构建脚本按 CONFIG['group_classes'] 注入——生成时请先读目标文档的 <style>，
+// 把它自己的同类 class 名填进配置（不要套用别的文档的 class 名）。
+// 找不到任何这类 class 也没关系——下面的结构启发式（同标签+共同class前缀/边框背景signature）会接管。
+const GROUP_CLASSES = __GROUP_CLASSES_JSON_PLACEHOLDER__;
+
+function initModules(doc){
+  if (window.__modulesTagged) { setHandlesVisible(doc, true); return; }
+  window.__modulesTagged = true;
+
+  const hasGroupClass = el => GROUP_CLASSES.some(c => el.classList && el.classList.contains(c));
+  const looksRepeating = el => {
+    const kids = [...el.children];
+    if (kids.length < 2) return false;
+    const first = kids[0];
+    if (!kids.every(k => k.tagName === first.tagName)) return false;
+    if (first.classList.length && kids.every(k => k.classList.contains(first.classList[0]))) return true;
+    const cardLike = k => /border(-left)?\s*:|background\s*:/.test(k.getAttribute('style') || '');
+    return kids.every(cardLike);
+  };
+  const isGroup = el => hasGroupClass(el) || looksRepeating(el);
+
+  function findModuleRoots(container){
+    const out = [];
+    [...container.children].forEach(child=>{
+      if (isGroup(child)) {
+        out.push(...[...child.children]);
+      } else {
+        const innerGroup = GROUP_CLASSES.map(c=>'.'+c).reduce((found,sel)=>found||child.querySelector(sel), null);
+        if (innerGroup && innerGroup !== child) {
+          const leading = [...child.children].filter(c=>c!==innerGroup && !innerGroup.contains(c));
+          if (leading.length) out.push(child);
+          else out.push(...[...innerGroup.children]);
+        } else {
+          out.push(child);
+        }
+      }
+    });
+    return out;
+  }
+
+  // FLIP：先记住除拖拽元素外、所有同组兄弟的旧坐标，真正挪完 DOM 之后再对比新坐标，
+  // 差多少就先用 transform 瞬间"倒退"回旧位置，再在下一帧去掉 transition，让它飞回 0——
+  // 视觉上就是"卡片平滑滑到新位置"而不是瞬间消失重出现。拖拽中的元素本身不参与（它跟手走）。
+  function flipMove(scope, excludeEl, mutate){
+    const items = [...scope.children].filter(c=>c.classList && c.classList.contains('mod-item') && c!==excludeEl);
+    const before = items.map(el=>[el, el.getBoundingClientRect()]);
+    mutate();
+    before.forEach(([el, r0])=>{
+      const r1 = el.getBoundingClientRect();
+      const dx = r0.left - r1.left, dy = r0.top - r1.top;
+      if (Math.abs(dx) < .5 && Math.abs(dy) < .5) return;
+      el.style.transition = 'none';
+      el.style.transform = `translate(${dx}px,${dy}px)`;
+      requestAnimationFrame(()=>{
+        el.style.transition = 'transform .32s cubic-bezier(.22,1,.36,1)';
+        el.style.transform = '';
+        el.addEventListener('transitionend', ()=>{ el.style.transition=''; }, {once:true});
+      });
+    });
+  }
+
+  let dragEl=null, scopeEl=null, dragStartNextSibling=null, dragStartClientY=0, bigModeActive=false;
+
+  function onMove(e){
+    if(!dragEl) return;
+    const dragRect = dragEl.getBoundingClientRect();
+    const cardH = dragRect.height || 40;
+    if (!bigModeActive && Math.abs(e.clientY - dragStartClientY) > cardH*1.5) bigModeActive = true;
+
+    const allItems = [...scopeEl.children].filter(c=>c.classList && c.classList.contains('mod-item'));
+    const curIdx = allItems.indexOf(dragEl);
+
+    if (bigModeActive){
+      // 大幅度：按真实光标位置算目标，可以一次跳多格
+      const siblings = allItems.filter(c=>c!==dragEl);
+      let target = null;
+      for (const sib of siblings){
+        const r = sib.getBoundingClientRect();
+        if (e.clientY < r.top + r.height/2){ target = sib; break; }
+      }
+      const willChange = target ? (dragEl.nextSibling !== target) : (scopeEl.lastElementChild !== dragEl);
+      if (willChange){
+        flipMove(scopeEl, dragEl, ()=>{
+          if (target) scopeEl.insertBefore(dragEl, target);
+          else scopeEl.appendChild(dragEl);
+        });
+      }
+    } else {
+      // 小幅度：每次只允许跟紧邻的上一个/下一个交换 1 格，防止手抖跳多格
+      const dragCenter = dragRect.top + dragRect.height/2;
+      if (e.clientY < dragCenter - 4 && curIdx > 0){
+        const prev = allItems[curIdx-1];
+        flipMove(scopeEl, dragEl, ()=> scopeEl.insertBefore(dragEl, prev));
+      } else if (e.clientY > dragCenter + 4 && curIdx < allItems.length-1){
+        const next = allItems[curIdx+1];
+        flipMove(scopeEl, dragEl, ()=> scopeEl.insertBefore(dragEl, next.nextSibling));
+      }
+    }
+  }
+  function onUp(){
+    if(dragEl){
+      dragEl.classList.remove('mod-dragging'); dragEl.style.outline='';
+      if (dragEl.nextSibling !== dragStartNextSibling){
+        pushUndo({type:'module-move', el:dragEl, parent:scopeEl, beforeEl:dragStartNextSibling});
+      }
+    }
+    dragEl=null; scopeEl=null; dragStartNextSibling=null; bigModeActive=false;
+    doc.removeEventListener('mousemove', onMove);
+    doc.removeEventListener('mouseup', onUp);
+  }
+
+  function addHandle(moduleEl){
+    if (moduleEl.dataset.modTagged) return;
+    moduleEl.dataset.modTagged = '1';
+    moduleEl.classList.add('mod-item');
+    const cs = getComputedStyle(moduleEl);
+    if (cs.position === 'static') moduleEl.style.position = 'relative';
+    const h = doc.createElement('div');
+    h.className = 'mod-handle';
+    h.textContent = '⠿';
+    h.style.cssText = 'position:absolute;top:4px;left:4px;width:22px;height:22px;line-height:22px;' +
+      'text-align:center;background:rgba(46,58,214,.9);color:#fff;border-radius:6px;font-size:14px;' +
+      'cursor:grab;z-index:999;user-select:none;box-shadow:0 2px 6px rgba(0,0,0,.4);';
+    moduleEl.appendChild(h);
+    h.addEventListener('mousedown', (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      dragEl = moduleEl; scopeEl = moduleEl.parentElement;
+      dragStartNextSibling = moduleEl.nextSibling; // 撤回要靠这个还原拖拽前的位置
+      dragStartClientY = e.clientY; bigModeActive = false;
+      dragEl.classList.add('mod-dragging');
+      dragEl.style.outline = '2px dashed #2E3AD6';
+      doc.addEventListener('mousemove', onMove);
+      doc.addEventListener('mouseup', onUp);
+    });
+  }
+
+  function addInserter(container){
+    if (container.dataset.inserterAdded) return;
+    container.dataset.inserterAdded = '1';
+    const btn = doc.createElement('button');
+    btn.className = 'mod-add-btn';
+    btn.textContent = '+ 新增模块';
+    btn.style.cssText = 'display:block;width:100%;margin-top:16px;padding:10px;background:transparent;' +
+      'border:1px dashed #334155;color:#64748b;border-radius:10px;cursor:pointer;font-size:12px;';
+    btn.addEventListener('click', ()=>{
+      const mod = doc.createElement('div');
+      mod.className = 'mc';
+      mod.style.cssText = 'padding:20px;';
+      mod.innerHTML = '<p contenteditable="true" style="color:#94a3b8;font-size:14px;line-height:1.7;outline:none;">点击输入文字…</p>';
+      container.insertBefore(mod, btn);
+      addHandle(mod);
+      pushUndo({type:'module-add', el:mod});
+      mod.querySelector('p').focus();
+    });
+    container.appendChild(btn);
+  }
+
+  // CONTAINER_SELECTOR：目标文档里"一页/一个分区"的内容容器选择器，由构建脚本按
+  // CONFIG['container_selector'] 注入——翻页型文档常是 ".page .container"，
+  // 流式长文档可能要换成每个 <section>/chapter 容器，生成时按实际结构判断。
+  const CONTAINER_SELECTOR = "__CONTAINER_SELECTOR_PLACEHOLDER__";
+
+  let total = 0;
+  doc.querySelectorAll(CONTAINER_SELECTOR).forEach(container=>{
+    const roots = findModuleRoots(container);
+    roots.forEach(el => { addHandle(el); total++; });
+    addInserter(container);
+  });
+  console.log('[modules] tagged', total, 'module(s) across', doc.querySelectorAll(CONTAINER_SELECTOR).length, 'container(s)');
+  setHandlesVisible(doc, true);
+}
+
+function setHandlesVisible(doc, show){
+  doc.querySelectorAll('.mod-handle').forEach(h => h.style.display = show ? 'flex' : 'none');
+  doc.querySelectorAll('.mod-add-btn').forEach(b => b.style.display = show ? 'block' : 'none');
+}
+
+// 定位模式是"颜色"标签页的一部分，不再单独开关；这个函数只管底层的事件绑定。
+function setLocating(doc, on){
+  locating = on;
+  if (locating) doc.addEventListener('click', onLocateClick, true);
+  else doc.removeEventListener('click', onLocateClick, true);
+}
+
+function setColorEdit(doc, on){
+  colorEditOn = on;
+  colorSection.style.display = on ? 'block' : 'none';
+  if (on) ensureLocateStyle(doc); // 背景可能在上次打开后被改过，重新算一遍互补色
+  setLocating(doc, on);
+}
+
+// ── 三个模式现在是一组互斥的"滑动指示器标签页"：模块 / 文字 / 颜色，同一时间只有一个生效 ──
+function setActiveTab(tab){
+  const doc = iframe.contentDocument;
+  // 先把当前已开启的模式关掉
+  if (modulesOn){ modulesOn = false; setHandlesVisible(doc, false); }
+  if (editing){ editing = false; doc.body.contentEditable = 'false'; overlay.classList.remove('show'); }
+  if (colorEditOn) setColorEdit(doc, false);
+  [modBtn, editBtn, colorEditBtn].forEach(b=>b.classList.remove('on'));
+
+  if (tab === activeTab){ activeTab = null; moveIndicator(null); return; } // 再点一次当前标签 = 收起
+
+  activeTab = tab;
+  if (tab === 'mod'){
+    modulesOn = true; initModules(doc); modBtn.classList.add('on'); moveIndicator(modBtn);
+  } else if (tab === 'edit'){
+    editing = true; doc.body.contentEditable = 'true'; overlay.classList.add('show');
+    editBtn.classList.add('on'); moveIndicator(editBtn);
+  } else if (tab === 'color'){
+    setColorEdit(doc, true); colorEditBtn.classList.add('on'); moveIndicator(colorEditBtn);
+  }
+}
+modBtn.addEventListener('click', ()=> setActiveTab('mod'));
+editBtn.addEventListener('click', ()=> setActiveTab('edit'));
+colorEditBtn.addEventListener('click', ()=> setActiveTab('color'));
+
+resetBtn.addEventListener('click', ()=>{
+  const oldDoc = iframe.contentDocument;
+  if (locating) oldDoc.removeEventListener('click', onLocateClick, true);
+  editing = false; modulesOn = false; locating = false; colorEditOn = false; activeTab = null; activeLocateRow = null;
+  [modBtn, editBtn, colorEditBtn].forEach(b=>b.classList.remove('on'));
+  moveIndicator(null);
+  colorSection.style.display = 'none';
+  overlay.classList.remove('show');
+  undoStack.length = 0; updateUndoButton();
+  loadDoc();
+});
+
+saveBtn.addEventListener('click', ()=>{
+  const doc = iframe.contentDocument;
+  doc.querySelectorAll('.mod-handle, .mod-add-btn').forEach(n=>n.remove());
+  doc.querySelectorAll('[data-mod-tagged]').forEach(n=>{ delete n.dataset.modTagged; n.classList.remove('mod-item'); });
+  clearColorHighlights(doc);
+  const locateStyle = doc.getElementById('__locate_style__');
+  if (locateStyle) locateStyle.remove();
+  const out = '<!doctype html>\n' + doc.documentElement.outerHTML;
+  const blob = new Blob([out], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  a.href = url;
+  a.download = `__EXPORT_FILENAME_PLACEHOLDER___${ts}.html`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  if (modulesOn) initModules(doc);
+});
+
+loadDoc();
+</script>
+</body>
+</html>

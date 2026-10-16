@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 本地试跑产出的调整工具 HTML（真正的产出物按约定应该落在
+# D:\Git\Obsidian\Agent\HTML Report skill\ 下，不在这个skill目录里；
+# 这条规则只是以防万一有人在本目录里直接跑了构建脚本）
+/output/
+*.generated.html
+
+# OS / 编辑器杂项
+.DS_Store
+Thumbs.db
+*.swp
