@@ -16,6 +16,20 @@
 - **文字编辑**：可增删改已有文字，无需在与AI对话。
 - **撤回**：支持撤回颜色、模块的变更。
 
+## 怎么安装
+
+## Install
+npx skills add Ria-dong/html-report-tuner
+
+
+Re-run any time to update. Or copy `SKILL.md` + `scripts/` + `templates/` into:
+
+* Claude Code: `~/.claude/skills/html-report-tuner/`
+* Cursor: `.cursor/rules/html-report-tuner.mdc` (body of `SKILL.md`, no frontmatter)
+* Codex: `~/.codex/skills/html-report-tuner/` (personal) or `.codex/skills/html-report-tuner/` (project-scoped)
+
+The rule-set lives in `SKILL.md`. The reusable interaction shell (panel UI, drag engine, color math) lives in `templates/tuner-shell.html`; the build script is `scripts/build_tuner.py`.
+
 ## 怎么用
 
 在你的AI里触发这个 skill（比如"帮我做个调整工具"）即可一键使用。
